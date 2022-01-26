@@ -167,8 +167,10 @@ public class Dex2Asm {
         if ((access & Opcodes.ACC_INTERFACE) == 0) { // issue 55
             access |= Opcodes.ACC_SUPER; // 解决生成的class文件使用dx重新转换时使用的指令与原始指令不同的问题
         }
+        // RedditVanced: clear private + protected, add public
         // access in classes have no acc_static or acc_private
-        access &= ~(Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE);
+        access &= ~(Opcodes.ACC_STATIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED);
+        access |= Opcodes.ACC_PUBLIC;
         if (isInner && (access & Opcodes.ACC_PROTECTED) != 0) {
             // protected inner classes are public
             access &= ~Opcodes.ACC_PROTECTED;
@@ -181,12 +183,9 @@ public class Dex2Asm {
 
     private static int clearInnerAccess(int access) {
         access &= (~Opcodes.ACC_SUPER); // inner class attr has no acc_super
-        if (0 != (access & Opcodes.ACC_PRIVATE)) { // clear public/protected if it is private
-            access &= ~(Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED);
-        } else if (0 != (access & Opcodes.ACC_PROTECTED)) { // clear public if it is protected
-            access &= ~(Opcodes.ACC_PUBLIC);
-        }
-        access &= ~Opcodes.ACC_SYNTHETIC; // clean ACC_SYNTHETIC
+        // RedditVanced: clear private + protected, add public
+        access &= ~(Opcodes.ACC_SYNTHETIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_PROTECTED); // clean ACC_SYNTHETIC
+        access |= Opcodes.ACC_PUBLIC;
         return access;
     }
 
@@ -346,9 +345,15 @@ public class Dex2Asm {
         }
         int access = methodNode.access;
         // clear ACC_DECLARED_SYNCHRONIZED, ACC_CONSTRUCTOR and ACC_SYNTHETIC from method flags
-        final int cleanFlag = ~((DexConstants.ACC_DECLARED_SYNCHRONIZED | DexConstants.ACC_CONSTRUCTOR
-                | Opcodes.ACC_SYNTHETIC));
+        final int cleanFlag = ~(DexConstants.ACC_DECLARED_SYNCHRONIZED | DexConstants.ACC_CONSTRUCTOR | Opcodes.ACC_SYNTHETIC);
         access &= cleanFlag;
+
+        // RedditVanced: clear protected + private flags, add public if not instance method
+        if ((access & (Opcodes.ACC_STATIC | DexConstants.ACC_CONSTRUCTOR)) == 0) {
+            access &= ~(DexConstants.ACC_PRIVATE | DexConstants.ACC_PROTECTED);
+            access |= DexConstants.ACC_PUBLIC;
+        }
+
         return cv.visitMethod(access, methodNode.method.getName(), methodNode.method.getDesc(), signature, xthrows);
     }
 
@@ -627,8 +632,12 @@ public class Dex2Asm {
             signature = null;
         }
 
-        final int fieldCleanFlag = ~((DexConstants.ACC_DECLARED_SYNCHRONIZED | Opcodes.ACC_SYNTHETIC));
-        FieldVisitor fv = cv.visitField(fieldNode.access & fieldCleanFlag, fieldNode.field.getName(),
+        // RedditVanced: clear private + protected, add public
+        int access = fieldNode.access;
+        final int fieldCleanFlag = ~(DexConstants.ACC_DECLARED_SYNCHRONIZED | Opcodes.ACC_SYNTHETIC | Opcodes.ACC_PRIVATE | Opcodes.ACC_PUBLIC);
+        access &= fieldCleanFlag;
+        access |= Opcodes.ACC_PUBLIC;
+        FieldVisitor fv = cv.visitField(access, fieldNode.field.getName(),
                 fieldNode.field.getType(), signature, value);
 
         if (fv == null) {

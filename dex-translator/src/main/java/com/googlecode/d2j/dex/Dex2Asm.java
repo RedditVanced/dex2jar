@@ -343,16 +343,18 @@ public class Dex2Asm {
                     + signature + ".");
             signature = null;
         }
+
         int access = methodNode.access;
-        // clear ACC_DECLARED_SYNCHRONIZED, ACC_CONSTRUCTOR and ACC_SYNTHETIC from method flags
-        final int cleanFlag = ~(DexConstants.ACC_DECLARED_SYNCHRONIZED | DexConstants.ACC_CONSTRUCTOR | Opcodes.ACC_SYNTHETIC);
-        access &= cleanFlag;
 
         // RedditVanced: clear protected + private flags, add public if not instance method
-        if ((access & (Opcodes.ACC_STATIC | DexConstants.ACC_CONSTRUCTOR)) == 0) {
+        if ((access & (Opcodes.ACC_STATIC | DexConstants.ACC_CONSTRUCTOR | Opcodes.ACC_PRIVATE)) != Opcodes.ACC_PRIVATE) {
             access &= ~(DexConstants.ACC_PRIVATE | DexConstants.ACC_PROTECTED);
             access |= DexConstants.ACC_PUBLIC;
         }
+
+        // clear ACC_DECLARED_SYNCHRONIZED, ACC_CONSTRUCTOR and ACC_SYNTHETIC from method flags
+        final int cleanFlag = ~(DexConstants.ACC_DECLARED_SYNCHRONIZED | DexConstants.ACC_CONSTRUCTOR | Opcodes.ACC_SYNTHETIC);
+        access &= cleanFlag;
 
         return cv.visitMethod(access, methodNode.method.getName(), methodNode.method.getDesc(), signature, xthrows);
     }
